@@ -1,0 +1,30 @@
+.product-categories {
+    text-align: center;
+  }
+  
+  .categories-list {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  
+  .category-card {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+    border:none;
+  }
+  
+  .category-card:hover {
+    transform: scale(1.05);
+  }
+  
+  .category-image {
+    width: 100%;
+    height: 400px; 
+    object-fit: cover;
+  }
+ 
+  

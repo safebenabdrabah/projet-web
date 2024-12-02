@@ -1,0 +1,101 @@
+/* Login.css */
+.login-container {
+    background: linear-gradient(135deg, #000000 0%, #0056b3 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    color: white;
+  }
+  
+  .login-left {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  
+  .login-right {
+    flex: 1;
+    max-width: 400px;
+    padding: 2rem;
+    background-color: rgb(255, 255, 255);
+    border-radius: 8px;
+    color: #000000;
+    margin-right: 250px;
+  }
+  
+  .login-title {
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  
+  .login-links {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1rem;
+  }
+  
+ 
+  
+  @media (max-width: 768px) {
+    .login-left {
+      padding: 10px;
+    }
+  
+    .login-logo {
+      width: 120px;
+    }
+  }
+
+  /* Optional animation for creativity */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  .login-logo {
+    width: 500px; /* Adjust the size for better proportions */
+    height: auto; /* Maintain aspect ratio */
+    animation: fadeIn 1.5s ease-in-out;
+    margin-bottom: 0px; /* Space between logo and slogan */
+  }
+  
+  .login-slogan {
+    color: #ffffff;
+    font-size: 22px;
+    font-family: 'Georgia', serif; /* Professional font */
+    font-style: italic; /* Italicized text */
+    text-align: left; /* Align slogan with the logo */
+    letter-spacing: 0.5px; /* Improve readability */
+  
+    margin-left: 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .login-left {
+      align-items: center; /* Center content on smaller screens */
+      padding-left: 0;
+    }
+  
+    .logo-container {
+      text-align: center;
+    }
+  
+    .login-logo {
+      width: 180px; /* Smaller size for responsiveness */
+    }
+  
+    .login-slogan {
+      font-size: 14px; /* Adjust font size for smaller screens */
+      text-align: center; /* Center text for responsiveness */
+    }
+  }
