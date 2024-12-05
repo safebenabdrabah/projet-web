@@ -24,6 +24,12 @@ import { BiExpandAlt, BiCollapseAlt } from "react-icons/bi";
 import { FaShoppingCart, FaCreditCard, FaMoneyBillWave } from "react-icons/fa";
 import Footer from "./Footer";
 import Navbar from "./Navbar";
+import { db , collection } from "../config/Config"; 
+import { addDoc } from 'firebase/firestore';
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { getAuth } from "firebase/auth";
 
 const StyledCard = styled(Card)(({ theme }) => ({
   margin: "20px 0",
@@ -44,6 +50,11 @@ const CheckoutPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("online");
   const [formErrors, setFormErrors] = useState({});
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const navigate = useNavigate();
+
+  const auth = getAuth();
+  const userId = auth.currentUser?.uid;
 
   useEffect(() => {
     const fetchCartItems = async () => {
@@ -109,14 +120,74 @@ const CheckoutPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    const requiredFields = ["firstName", "lastName", "email", "phone", "address", "city", "postalCode"];
+    const missingFields = requiredFields.filter(field => !formData[field]);
+
+    if (missingFields.length > 0) {
+      // If any required fields are missing, show a toast error message
+      toast.error(`Please fill in the following fields: ${missingFields.join(", ")}`);
+      return; // Prevent form submission
+    }
+
+    setLoading(true);
+  
+    try {
+      // Transform cartItems to only include product name and quantity
+      const transformedCartItems = cartItems.map((item) => ({
+        productId:item.id,
+        productName: item.productName,
+        quantity: item.quantity,
+      }));
+  
+      // Calculate total
+      const totalAmount = calculateTotal();
+  
+      // Add the data to Firestore
+      const docRef = await addDoc(collection(db, "commands"), {
+        ...formData,
+        cartItems: transformedCartItems, // Use transformed data
+        paymentMethod,
+        totalAmount, // Include the total amount
+        createdAt: new Date(),
+        userId
+      });
+  
+      if (paymentMethod === "online") {
+        navigate("/payment", { state: { orderId: docRef.id, total: totalAmount } });
+        setSuccessMessage(`Order placed successfully! Order ID: ${docRef.id}`);
+        setCartItems([]);
+        localStorage.removeItem("cartItems");
+        setFormData({
+          firstName: "",
+          lastName: "",
+          email: "",
+          phone: "",
+          address: "",
+          city: "",
+          postalCode: "",
+        });
+      } else {
+        setSuccessMessage(`Order placed successfully! Order ID: ${docRef.id}`);
+        setCartItems([]);
+        localStorage.removeItem("cartItems");
+        setFormData({
+          firstName: "",
+          lastName: "",
+          email: "",
+          phone: "",
+          address: "",
+          city: "",
+          postalCode: "",
+        });
+      }
+    } catch (err) {
+      setError("Failed to place order. Please try again.");
+    } finally {
       setLoading(false);
-      alert("Order placed successfully!");
-    }, 2000);
+    }
   };
+  
 
   const calculateTotal = () => {
     return cartItems.reduce((total, item) => total + item.productPrice * item.quantity, 0);
@@ -227,19 +298,21 @@ const CheckoutPage = () => {
                   />
                 </Grid>
                 <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Phone"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    error={Boolean(formErrors.phone)}
-                    helperText={formErrors.phone}
-                    required
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">+1</InputAdornment>
-                    }}
-                  />
+                <TextField
+                  fullWidth
+                  label="Phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  required
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">+216</InputAdornment>,
+                    inputProps: {
+                      maxLength: 8, // Limit input to 8 digits
+                      pattern: "^[0-9]{8}$", // Ensure only 8 digits are entered
+                    }
+                  }}
+                />
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
@@ -274,8 +347,6 @@ const CheckoutPage = () => {
                     name="postalCode"
                     value={formData.postalCode}
                     onChange={handleInputChange}
-                    error={Boolean(formErrors.postalCode)}
-                    helperText={formErrors.postalCode}
                     required
                   />
                 </Grid>

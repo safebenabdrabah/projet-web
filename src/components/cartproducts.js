@@ -54,7 +54,8 @@ const ShoppingCart = () => {
     };
 
   const handleProductClick = (id) => {
-    navigate("/product", { state: { productId: id } });
+    navigate(`/product/${id}`);
+   
   };
 
   const handleCheckoutClick = () => {

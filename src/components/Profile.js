@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState , useEffect } from "react";
 import {
   Container,
   Grid,
@@ -23,6 +23,9 @@ import { FaEdit, FaHeart, FaEye, FaEyeSlash, FaPlus } from "react-icons/fa";
 import Footer from "./Footer";
 import Navbar from "./Navbar";
 import { useUser } from "../global/UserContext";
+import { updateDoc, collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
+import {db , auth } from "../config/Config"; 
+import ProductCard from "./ProductCard";
 import AddProducts from "./AddProducts";
 
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -46,113 +49,195 @@ const Profile = () => {
   const [editMode, setEditMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
-  console.log(userData);
+  const [likedProducts, setLikedProducts] = useState([]);
+  const [purchasedProducts, setPurchasedProducts] = useState([]);
+  const [addedProducts, setAddedProducts] = useState([]);
+  const [newPassword, setNewPassword] = useState('');
+  const [userDetails, setUserDetails] = useState({
+    Username: userData ? userData.Username : '',
+    Email: userData ? userData.Email : '',
+    password: userData ? userData.password : '',
+  });
 
 
-  const purchasedProducts = [
-    {
-      id: 1,
-      name: "Wireless Headphones",
-      price: "$199",
-      image: "images.unsplash.com/photo-1505740420928-5e560c06d30e"
-    },
-    {
-      id: 2,
-      name: "Smart Watch",
-      price: "$299",
-      image: "images.unsplash.com/photo-1523275335684-37898b6baf30"
-    }
-  ];
+ 
+  useEffect(() => {
+    // Fetch liked products
+    const fetchLikedProducts = async () => {
+      try {
+        const likedProductIds = userData.likedproducts|| []; 
+        const productPromises = likedProductIds.map((id) => getDoc(doc(db, "products", id)));
+        const productDocs = await Promise.all(productPromises);
+        const products = productDocs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setLikedProducts(products);
+      } catch (error) {
+        console.error("Error fetching liked products:", error);
+      }
+    };
 
-  const likedProducts = [
-    {
-      id: 3,
-      name: "Premium Laptop",
-      price: "$1299",
-      image: "images.unsplash.com/photo-1496181133206-80ce9b88a853"
-    },
-    {
-      id: 4,
-      name: "Digital Camera",
-      price: "$799",
-      image: "images.unsplash.com/photo-1526170375885-4d8ecf77b99f"
-    }
-  ];
+    // Fetch purchased products
 
-  const handleSave = () => {
-    setEditMode(false);
-  };
+    const fetchPurchasedProducts = async () => {
+      try {
+        const q = query(collection(db, "commands"), where("userId", "==",  auth.currentUser.uid));
+        console.log(userData.id)
+        const querySnapshot = await getDocs(q);
+        const purchasedProductIds = [];
+        console.log(purchasedProductIds);
+        querySnapshot.forEach((doc) => {
+          const { cartItems } = doc.data();
+          purchasedProductIds.push(...cartItems.map((item) => item.productId)); // Assuming cartItems have productId
+        });
 
-  const validateEmail = (email) => {
+        const productPromises = purchasedProductIds.map((id) => getDoc(doc(db, "products", id)));
+        const productDocs = await Promise.all(productPromises);
+        const products = productDocs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setPurchasedProducts(products);
+      } catch (error) {
+        console.error("Error fetching purchased products:", error);
+      }
+    };
+
+    fetchLikedProducts();
+    fetchPurchasedProducts();
+  }, [userData]);
+
+  useEffect(() => {
+    const fetchAddedProducts = async () => {
+      const currentUser = auth.currentUser;
+
+      if (!currentUser || !currentUser.uid) {
+        console.error("No authenticated user found");
+        return;
+      }
+
+      try {
+        const q = query(
+          collection(db, "products"),
+          where("user", "==", currentUser.uid)
+        );
+        const querySnapshot = await getDocs(q);
+        const products = [];
+
+        querySnapshot.forEach((doc) => {
+          products.push({ id: doc.id, ...doc.data() }); // Include doc ID and data
+        });
+
+        setAddedProducts(products);
+      } catch (error) {
+        console.error("Error fetching added products:", error);
+      }
+    };
+
+      fetchAddedProducts();
+    }, []);
+  
+
+   
+  // Handle input changes for email and password
+
+  const isValidEmail = (email) => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return regex.test(email);
   };
-
+  
+  const validatePassword = (password) => {
+    // Simple password validation: length must be at least 6 characters
+    return password.length >= 6;
+  };
+  
   const handleEmailChange = (e) => {
     const updatedEmail = e.target.value;
-    if (validateEmail(updatedEmail)) {
-      updateUserData({ email: updatedEmail });
-    }
-    };
-
-   const handleUnlike = (productId) => {
-    // Implementation for unlike functionality
-    console.log("Unliked product:", productId);
+    setUserDetails({ ...userDetails, Email: updatedEmail });
   };
-
-  const DeleteAccount = () => {
-    const { deleteUserData } = useUser();
   
-    const handleDelete = async () => {
-      if (window.confirm("Are you sure you want to delete your account?")) {
-        await deleteUserData();
-        alert("Account deleted successfully!");
+  const handlePasswordChange = (e) => {
+    setNewPassword(e.target.value);
+  };
+  
+  // Save changes to Firestore
+  const handleSave = async () => {
+    if (!isValidEmail(userDetails.Email)) {
+      alert("Invalid email format");
+      return;
+    }
+  
+    const userRef = doc(db, 'SignedUpUserData', auth.currentUser.uid); // Assuming userData has id field
+    try {
+      // Update user details
+      const updatedUser = {
+        Username: userDetails.Username,
+        Email: userDetails.Email,
+      };
+  
+      // Handle password change securely
+      if (newPassword) {
+        if (validatePassword(newPassword)) {
+          updatedUser.password = newPassword;
+        } else {
+          alert('Password is too weak');
+          return;
+        }
       }
-    };
-  }
+  
+      // Update the user data in Firestore
+      await updateDoc(userRef, updatedUser);
+  
+      setEditMode(false);
+      alert('Profile updated successfully');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Error updating profile');
+    }
+  };
 
   return (
     <>
-    <Navbar/>
+    <Navbar />
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Grid container spacing={4}>
         {/* Profile Section */}
         <Grid item xs={12} md={4}>
           <StyledCard>
-            <CardContent sx={{ textAlign: "center" }}>
-            <ProfileImage
-              src={userData.profileImage }
-              alt="Profile"
-            />
+            <CardContent sx={{ textAlign: 'center' }}>
+              {/* Profile Image Section */}
+              <img
+                src={userData.profileImage || '../images/profile.png'}
+                alt="Profile"
+                style={{ width: 120, height: 120, borderRadius: '50%' }}
+              />
+              {/* Profile Details Form */}
               <Box component="form">
                 <TextField
                   fullWidth
                   label="Name"
-                  value={userData.Username}
+                  value={userDetails.Username}
+                  onChange={(e) => setUserDetails({ ...userDetails, Username: e.target.value })}
                   disabled={!editMode}
                   sx={{ mb: 2 }}
                   InputProps={{
-                    "aria-label": "User name"
+                    'aria-label': 'User name',
                   }}
                 />
-                <TextField
+              <TextField
                   fullWidth
                   label="Email"
-                  value={userData.Email}
-                  disabled={!editMode}
+                  value={userDetails.Email}
                   onChange={handleEmailChange}
-                  error={!validateEmail(userData.Email)}
-                  helperText={!validateEmail(userData.Email) ? "Invalid email format" : ""}
+                  disabled={!editMode}
+                  error={userDetails.Email && !isValidEmail(userDetails.Email)}  // Use isValidEmail to check the email format
+                  helperText={userDetails.Email && !isValidEmail(userDetails.Email) ? 'Invalid email format' : ''}
                   sx={{ mb: 2 }}
                   InputProps={{
-                    "aria-label": "User email"
+                    'aria-label': 'User email',
                   }}
                 />
                 <TextField
                   fullWidth
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   label="Password"
-                  value={userData.password}
+                  value={newPassword}
+                  onChange={handlePasswordChange}
                   disabled={!editMode}
                   InputProps={{
                     endAdornment: (
@@ -166,7 +251,7 @@ const Profile = () => {
                         </IconButton>
                       </InputAdornment>
                     ),
-                    "aria-label": "User password"
+                    'aria-label': 'User password',
                   }}
                 />
                 <Box sx={{ mt: 2 }}>
@@ -194,7 +279,7 @@ const Profile = () => {
             </CardContent>
           </StyledCard>
         </Grid>
-
+  
         {/* Products Section */}
         <Grid item xs={12} md={8}>
           <Box sx={{ mb: 4 }}>
@@ -207,72 +292,58 @@ const Profile = () => {
             >
               Add Product
             </Button>
+  
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h5" sx={{ mb: 2 }}>
+                Added Products
+              </Typography>
+              <Grid container spacing={2}>
+                {addedProducts.map((product) => (
+                  <Grid item xs={12} sm={6} md={4} key={product.id}>
+                    <ProductCard product={product} />
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
 
-            <Typography variant="h5" sx={{ mb: 2 }}>
-              Purchased Products
-            </Typography>
-            <Grid container spacing={2}>
-              {purchasedProducts.map((product) => (
-                <Grid item xs={12} sm={6} key={product.id}>
-                  <StyledCard>
-                    <CardMedia
-                      component="img"
-                      height="200"
-                      image={`https://${product.image}`}
-                      alt={product.name}
-                    />
-                    <CardContent>
-                      <Typography variant="h6">{product.name}</Typography>
-                      <Typography color="text.secondary">{product.price}</Typography>
-                    </CardContent>
-                  </StyledCard>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-
-          <Box>
-            <Typography variant="h5" sx={{ mb: 2 }}>
-              Liked Products
-            </Typography>
-            <Grid container spacing={2}>
-              {likedProducts.map((product) => (
-                <Grid item xs={12} sm={6} key={product.id}>
-                  <StyledCard>
-                    <CardMedia
-                      component="img"
-                      height="200"
-                      image={`https://${product.image}`}
-                      alt={product.name}
-                    />
-                    <CardContent>
-                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <Box>
-                          <Typography variant="h6">{product.name}</Typography>
-                          <Typography color="text.secondary">{product.price}</Typography>
-                        </Box>
-                        <IconButton
-                          onClick={() => handleUnlike(product.id)}
-                          color="primary"
-                          aria-label="Unlike product"
-                        >
-                          <FaHeart />
-                        </IconButton>
-                      </Box>
-                    </CardContent>
-                  </StyledCard>
-                </Grid>
-              ))}
-            </Grid>
+              {/* Purchased Products */}
+              <Box>
+              <Typography variant="h5" sx={{ mb: 2 }}>
+                Purchased Products
+              </Typography>
+              <Grid container spacing={2}>
+                {purchasedProducts.map((product) => (
+                  <Grid item xs={12} sm={6} md={4} key={product.id}>
+                    <ProductCard product={product} />
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+  
+            {/* Liked Products */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h5" sx={{ mb: 2 }}>
+                Liked Products
+              </Typography>
+              <Grid container spacing={2}>
+                {likedProducts.map((product) => (
+                  <Grid item xs={12} sm={6} md={4} key={product.id}>
+                    <ProductCard product={product} />
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+  
+          
           </Box>
         </Grid>
       </Grid>
-
+  
       {/* Add Product Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
         <DialogTitle>Add New Product</DialogTitle>
         <DialogContent>
-          <AddProducts/>
+          <AddProducts />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
@@ -282,8 +353,10 @@ const Profile = () => {
         </DialogActions>
       </Dialog>
     </Container>
-    <Footer/>
-    </>
+    <Footer />
+  </>
+  
+  
   );
 };
 

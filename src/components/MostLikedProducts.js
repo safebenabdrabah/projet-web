@@ -19,7 +19,7 @@ function MostLikedProducts() {
         }));
 
       
-        const sortedProducts = products.sort((a, b) => b.likes - a.likes).slice(0, 8);
+        const sortedProducts = products.sort((a, b) => b.likes - a.likes).slice(0, 6);
 
         setMostLiked(sortedProducts);
       } catch (error) {

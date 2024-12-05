@@ -13,6 +13,8 @@ import { UserProvider } from "./global/UserContext";
 import { CartProvider } from './global/CartContext';
 import { ProductProvider } from './global/ProductContext';
 import PageCategory from './components/pageCategory';
+import PaymentForm from './components/PaymentForm';
+import EditProduct from './components/EditProduct';
 
 function App() {
     
@@ -33,6 +35,8 @@ function App() {
                       <Route path="/product/:productId" element={<SingleProduct />} />
                       <Route path="/checkout" element={<CheckoutPage />} />
                       <Route path="/category/:categoryName" element={<PageCategory />} />
+                      <Route path="/payment" element={<PaymentForm />} />
+                      <Route path="/edit-product/:productId" element={<EditProduct />} />
                     </Routes>
                     <ToastContainer />
                   </BrowserRouter>

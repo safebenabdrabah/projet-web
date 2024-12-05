@@ -126,13 +126,18 @@ const ProductCard = ({ product }) => {
     <StyledCard role="article" aria-label="Product Card">
       <CardMedia
         component="img"
-        height="200"
         image={product.images[0]}
         alt={product.productName}
         onError={(e) => {
           e.target.src = "https://images.unsplash.com/photo-1633078654544-61b3455b9161"; // fallback image
         }}
         onClick={handleCardClick}
+        sx={{
+          height: 200, // Set a fixed height
+          width: "100%", // Make it span the full width of the card
+          objectFit: "cover", // Ensure the image covers the container without distortion
+          objectPosition: "center", // Center the image within the container
+        }}
       />
       <CardContent>
         <Box display="flex" justifyContent="space-between" alignItems="center">

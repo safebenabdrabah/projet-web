@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { deleteDoc } from "firebase/firestore";
 import {
   Box,
   Container,
@@ -41,6 +42,7 @@ const SingleProduct = () => {
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const currentUserId = auth.currentUser?.uid;
 
   // Fetch product data from Firestore
   useEffect(() => {
@@ -137,100 +139,149 @@ const SingleProduct = () => {
     );
   }
 
+  const handleEditProduct = () => {
+    navigate(`/edit-product/${productId}`);
+  };
+  
+  // Delete the product from Firestore
+  const handleDeleteProduct = async () => {
+    if (!auth.currentUser) {
+      setError("You need to log in to delete a product.");
+      setOpen(true);
+      return;
+    }
+  
+    try {
+      // Delete the product from Firestore
+      const productRef = doc(db, "products", productId);
+      await deleteDoc(productRef);
+  
+      // Optionally, delete it from the user's liked products if necessary
+      const userRef = doc(db, "SignedUpUserData", auth.currentUser.uid);
+      await updateDoc(userRef, { likedproducts: arrayRemove(productId) });
+  
+      // Optionally, navigate the user away after deletion
+      navigate("/"); // Redirect to home or another page
+      setToastMessage("Product deleted successfully.");
+      setToastOpen(true);
+    } catch (err) {
+      setError("Failed to delete product. Please try again.");
+      setOpen(true);
+    }
+  };
+
   return (
     <>
-      <Navbar />
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Grid container spacing={4}>
-          {/* Product Image Section */}
-          <Grid item xs={12} md={6}>
-            <Box sx={{ position: "relative" }}>
-              <img
-                src={productData.images?.[currentImageIndex] || ""}
-                alt={productData.productName || "Product"}
-                style={{ width: "100%", borderRadius: "12px" }}
-                loading="lazy"
-              />
-              <IconButton
-                sx={{
-                  position: "absolute",
-                  left: 8,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  backgroundColor: "rgba(255,255,255,0.8)",
-                }}
-                onClick={() =>
-                  setCurrentImageIndex(
-                    currentImageIndex === 0
-                      ? productData.images.length - 1
-                      : currentImageIndex - 1
-                  )
-                }
-              >
-                <MdKeyboardArrowLeft />
-              </IconButton>
-              <IconButton
-                sx={{
-                  position: "absolute",
-                  right: 8,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  backgroundColor: "rgba(255,255,255,0.8)",
-                }}
-                onClick={() =>
-                  setCurrentImageIndex(
-                    (currentImageIndex + 1) % productData.images.length
-                  )
-                }
-              >
-                <MdKeyboardArrowRight />
-              </IconButton>
-            </Box>
-          </Grid>
-
-          {/* Product Details Section */}
-          <Grid item xs={12} md={6}>
-            <Box>
-              <Typography variant="h4">{productData.productName}</Typography>
-              <Typography variant="h5" color="primary">
-                {productData.productPrice.toFixed(2)} DT
-              </Typography>
-              <Typography>{productData.description}</Typography>
-              <Typography>
-                Category: {productData.category || "Uncategorized"}
-              </Typography>
-              <Typography>
-                Created at: {formatCreatedAt || "Not available"}
-              </Typography>
-              <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
-                <Button
-                  variant="contained"
-                  startIcon={<FaShoppingCart />}
-                  onClick={handleAddToCart}
+       <Navbar/>
+        <Container maxWidth="lg" sx={{ py: 4 }}>
+          <Grid container spacing={4}>
+            {/* Product Image Section */}
+            <Grid item xs={12} md={6}>
+              <Box sx={{ position: "relative" }}>
+                <img
+                  src={productData.images?.[currentImageIndex] || ""}
+                  alt={productData.productName || "Product"}
+                  style={{ width: "100%", borderRadius: "12px" }}
+                  loading="lazy"
+                />
+                <IconButton
+                  sx={{
+                    position: "absolute",
+                    left: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    backgroundColor: "rgba(255,255,255,0.8)",
+                  }}
+                  onClick={() =>
+                    setCurrentImageIndex(
+                      currentImageIndex === 0
+                        ? productData.images.length - 1
+                        : currentImageIndex - 1
+                    )
+                  }
                 >
-                  Add to Cart
-                </Button>
-                <IconButton onClick={handleLikeClick} color="primary">
-                  {isLiked ? <BsHeartFill /> : <BsHeart />}
+                  <MdKeyboardArrowLeft />
                 </IconButton>
-                <Typography>{likes} likes</Typography>
+                <IconButton
+                  sx={{
+                    position: "absolute",
+                    right: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    backgroundColor: "rgba(255,255,255,0.8)",
+                  }}
+                  onClick={() =>
+                    setCurrentImageIndex(
+                      (currentImageIndex + 1) % productData.images.length
+                    )
+                  }
+                >
+                  <MdKeyboardArrowRight />
+                </IconButton>
               </Box>
-            </Box>
+            </Grid>
+      
+            {/* Product Details Section */}
+            <Grid item xs={12} md={6}>
+              <Box>
+                <Typography variant="h4">{productData.productName}</Typography>
+                <Typography variant="h5" color="primary">
+                  {productData.productPrice.toFixed(2)} DT
+                </Typography>
+                <Typography>{productData.description}</Typography>
+                <Typography>Category: {productData.category || "Uncategorized"}</Typography>
+                <Typography>Created at: {formatCreatedAt || "Not available"}</Typography>
+      
+                {/* Show Edit/Delete buttons if the current user is the product owner */}
+                {productData.user === currentUserId && (
+                  <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      onClick={handleEditProduct}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="error"
+                      onClick={handleDeleteProduct}
+                    >
+                      Delete
+                    </Button>
+                  </Box>
+                )}
+      
+                <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
+                  <Button
+                    variant="contained"
+                    startIcon={<FaShoppingCart />}
+                    onClick={handleAddToCart}
+                  >
+                    Add to Cart
+                  </Button>
+                  <IconButton onClick={handleLikeClick} color="primary">
+                    {isLiked ? <BsHeartFill /> : <BsHeart />}
+                  </IconButton>
+                  <Typography>{likes} likes</Typography>
+                </Box>
+              </Box>
+            </Grid>
           </Grid>
-        </Grid>
-
-        {/* Toast Snackbar */}
-        <Snackbar
-          open={toastOpen}
-          autoHideDuration={3000}
-          onClose={handleToastClose}
-        >
-          <Alert severity="success">{toastMessage}</Alert>
-        </Snackbar>
-      </Container>
-      <Footer />
+      
+          {/* Toast Snackbar */}
+          <Snackbar
+            open={toastOpen}
+            autoHideDuration={3000}
+            onClose={handleToastClose}
+          >
+            <Alert severity="success">{toastMessage}</Alert>
+          </Snackbar>
+        </Container>
+        <Footer/>
     </>
   );
+  
 };
 
 export default SingleProduct;
