@@ -22,8 +22,8 @@ import { styled } from "@mui/system";
 import { FaEdit, FaHeart, FaEye, FaEyeSlash, FaPlus } from "react-icons/fa";
 import Footer from "./Footer";
 import Navbar from "./Navbar";
-import { useUser } from "../global/UserContext";
-import { updateDoc, collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { updateDoc, collection, getDocs, query, where, doc, getDoc , deleteDoc } from "firebase/firestore";
 import {db , auth } from "../config/Config"; 
 import ProductCard from "./ProductCard";
 import AddProducts from "./AddProducts";
@@ -45,7 +45,9 @@ const ProfileImage = styled(Avatar)({
 });
 
 const Profile = () => {
-  const { userData, updateUserData, deleteUserData } = useUser();
+  const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
@@ -53,12 +55,66 @@ const Profile = () => {
   const [purchasedProducts, setPurchasedProducts] = useState([]);
   const [addedProducts, setAddedProducts] = useState([]);
   const [newPassword, setNewPassword] = useState('');
-  const [userDetails, setUserDetails] = useState({
-    Username: userData ? userData.Username : '',
-    Email: userData ? userData.Email : '',
-    password: userData ? userData.password : '',
-  });
+  const [userDetails, setUserDetails] = useState({});
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setLoading(true);
+      if (currentUser) {
+        setUser(currentUser);
+        console.log("User is logged in:", currentUser);
+        const userRef = doc(db, "SignedUpUserData", currentUser.uid);
+        const userSnap = await getDoc(userRef);
+  
+        if (userSnap.exists()) {
+          setUserData(userSnap.data());
+        } else {
+          console.log("No user data found in Firestore.");
+          setUserData(null);
+        }
+      } else {
+        setUser(null);
+        setUserData(null);
+      }
+      setLoading(false);
+    });
+  
+    return () => unsubscribe();
+  }, []);
+  
 
+  // Function to update user data
+  const updateUserData = async (newData) => {
+    if (!user) {
+      console.error("No user is logged in.");
+      return;
+    }
+
+    const userRef = doc(db, "SignedUpUserData", user.uid);
+
+    try {
+      await updateDoc(userRef, newData); // Update specific fields
+      setUserData((prev) => ({ ...prev, ...newData })); // Update state locally
+    } catch (error) {
+      console.error("Error updating user data:", error);
+    }
+  };
+
+  // Function to delete user data
+  const deleteUserData = async () => {
+    if (!user) {
+      console.error("No user is logged in.");
+      return;
+    }
+
+    const userRef = doc(db, "SignedUpUserData", user.uid);
+
+    try {
+      await deleteDoc(userRef); // Delete document from Firestore
+      setUserData(null); // Reset state locally
+    } catch (error) {
+      console.error("Error deleting user data:", error);
+    }
+  };
 
  
   useEffect(() => {
@@ -101,6 +157,7 @@ const Profile = () => {
     fetchLikedProducts();
     fetchPurchasedProducts();
   }, [userData]);
+  
 
   useEffect(() => {
     const fetchAddedProducts = async () => {
@@ -148,7 +205,7 @@ const Profile = () => {
   
   const handleEmailChange = (e) => {
     const updatedEmail = e.target.value;
-    setUserDetails({ ...userDetails, Email: updatedEmail });
+    setUserDetails({ ...userData, Email: updatedEmail });
   };
   
   const handlePasswordChange = (e) => {
@@ -157,7 +214,7 @@ const Profile = () => {
   
   // Save changes to Firestore
   const handleSave = async () => {
-    if (!isValidEmail(userDetails.Email)) {
+    if (!isValidEmail(userData.Email)) {
       alert("Invalid email format");
       return;
     }
@@ -166,8 +223,8 @@ const Profile = () => {
     try {
       // Update user details
       const updatedUser = {
-        Username: userDetails.Username,
-        Email: userDetails.Email,
+        Username: userData.Username,
+        Email: userData.Email,
       };
   
       // Handle password change securely
@@ -191,6 +248,10 @@ const Profile = () => {
     }
   };
 
+  if (loading) {
+    return <div>Loading...</div>;
+  };
+
   return (
     <>
     <Navbar />
@@ -202,7 +263,7 @@ const Profile = () => {
             <CardContent sx={{ textAlign: 'center' }}>
               {/* Profile Image Section */}
               <img
-                src={userData.profileImage || '../images/profile.png'}
+                src={ userData.profileImage || '../images/profile.png'}
                 alt="Profile"
                 style={{ width: 120, height: 120, borderRadius: '50%' }}
               />
@@ -211,8 +272,8 @@ const Profile = () => {
                 <TextField
                   fullWidth
                   label="Name"
-                  value={userDetails.Username}
-                  onChange={(e) => setUserDetails({ ...userDetails, Username: e.target.value })}
+                  value={userData.Username}
+                  onChange={(e) => setUserDetails({ ...userData, Username: e.target.value })}
                   disabled={!editMode}
                   sx={{ mb: 2 }}
                   InputProps={{
@@ -222,11 +283,11 @@ const Profile = () => {
               <TextField
                   fullWidth
                   label="Email"
-                  value={userDetails.Email}
+                  value={userData.Email}
                   onChange={handleEmailChange}
                   disabled={!editMode}
-                  error={userDetails.Email && !isValidEmail(userDetails.Email)}  // Use isValidEmail to check the email format
-                  helperText={userDetails.Email && !isValidEmail(userDetails.Email) ? 'Invalid email format' : ''}
+                  error={userData.Email && !isValidEmail(userData.Email)}  // Use isValidEmail to check the email format
+                  helperText={userData.Email && !isValidEmail(userData.Email) ? 'Invalid email format' : ''}
                   sx={{ mb: 2 }}
                   InputProps={{
                     'aria-label': 'User email',
@@ -319,7 +380,7 @@ const Profile = () => {
                 ))}
               </Grid>
             </Box>
-  
+             
             {/* Liked Products */}
             <Box sx={{ mb: 4 }}>
               <Typography variant="h5" sx={{ mb: 2 }}>

@@ -239,7 +239,7 @@ const CheckoutPage = () => {
                       </Grid>
                       <Grid item xs={4} sx={{ textAlign: "right" }}>
                         <Typography variant="body1">
-                          ${calculateLineTotal(item.productPrice, item.quantity)}
+                          {calculateLineTotal(item.productPrice, item.quantity)}DT
                         </Typography>
                       </Grid>
                     </Grid>
@@ -247,7 +247,7 @@ const CheckoutPage = () => {
                 ))}
                 <Box sx={{ mt: 2, p: 2, backgroundColor: "#e3f2fd", borderRadius: "8px" }}>
                   <Typography variant="h6">
-                    Total: ${calculateTotal().toFixed(2)}
+                    Total: {calculateTotal().toFixed(2)}DT
                   </Typography>
                 </Box>
               </Collapse>
@@ -416,7 +416,7 @@ const CheckoutPage = () => {
                   <Grid container justifyContent="space-between">
                     <Typography variant="body1">Subtotal</Typography>
                     <Typography variant="body1">
-                      ${calculateTotal().toFixed(2)}
+                      {calculateTotal().toFixed(2)}DT
                     </Typography>
                   </Grid>
                   <Grid container justifyContent="space-between" sx={{ mt: 1 }}>
@@ -430,7 +430,7 @@ const CheckoutPage = () => {
                   >
                     <Typography variant="h6">Total</Typography>
                     <Typography variant="h6">
-                      ${calculateTotal().toFixed(2)}
+                      {calculateTotal().toFixed(2)}DT
                     </Typography>
                   </Grid>
                 </Box>

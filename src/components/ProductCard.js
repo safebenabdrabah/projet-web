@@ -126,7 +126,7 @@ const ProductCard = ({ product }) => {
     <StyledCard role="article" aria-label="Product Card">
       <CardMedia
         component="img"
-        image={product.images[0]}
+        src={product?.images?.[0] || "https://via.placeholder.com/150"}
         alt={product.productName}
         onError={(e) => {
           e.target.src = "https://images.unsplash.com/photo-1633078654544-61b3455b9161"; // fallback image
