@@ -356,7 +356,7 @@ const Profile = () => {
   
             <Box sx={{ mb: 4 }}>
               <Typography variant="h5" sx={{ mb: 2 }}>
-                Added Products
+                Added Products ({addedProducts.length}) :
               </Typography>
               <Grid container spacing={2}>
                 {addedProducts.map((product) => (
@@ -370,7 +370,7 @@ const Profile = () => {
               {/* Purchased Products */}
               <Box>
               <Typography variant="h5" sx={{ mb: 2 }}>
-                Purchased Products
+                Purchased Products ({purchasedProducts.length}) :
               </Typography>
               <Grid container spacing={2}>
                 {purchasedProducts.map((product) => (
@@ -384,9 +384,10 @@ const Profile = () => {
             {/* Liked Products */}
             <Box sx={{ mb: 4 }}>
               <Typography variant="h5" sx={{ mb: 2 }}>
-                Liked Products
+                Liked Products ({likedProducts.length}) :
               </Typography>
               <Grid container spacing={2}>
+               
                 {likedProducts.map((product) => (
                   <Grid item xs={12} sm={6} md={4} key={product.id}>
                     <ProductCard product={product} />

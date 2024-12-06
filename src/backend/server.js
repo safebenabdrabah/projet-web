@@ -70,6 +70,46 @@ app.post('/send-email', async (req, res) => {
   }
 });
 
+app.post('/send-confirmation-email', async (req, res) => {
+  const { to, firstName, orderId, totalAmount, cartItems, address, city, postalCode } = req.body;
+
+  // Format cart items for the email body
+  const formattedItems = cartItems
+    .map(item => `${item.productName} (x${item.quantity})`)
+    .join('\n');
+
+  const emailContent = `
+    Dear ${firstName},
+
+    Thank you for your order! Your Order ID is ${orderId}.
+    The total amount is ${totalAmount.toFixed(2)}.DT
+
+    Items:
+    ${formattedItems}
+
+    Delivery Address:
+    ${address}, ${city}, ${postalCode}
+
+    Regards,
+    Yallashop
+  `;
+
+  const mailOptions = {
+    from: "spearfishingtun@gmail.com", // Sender email
+    to, // Recipient email
+    subject: "Order Confirmation",
+    text: emailContent, // Email content in plain text
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: "Order confirmation email sent successfully." });
+  } catch (error) {
+    console.error("Error sending email:", error);
+    res.status(500).json({ message: "Failed to send order confirmation email." });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });

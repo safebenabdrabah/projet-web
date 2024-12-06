@@ -30,6 +30,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { getAuth } from "firebase/auth";
+import { getDatabase, ref, set } from "firebase/database";
 
 const StyledCard = styled(Card)(({ theme }) => ({
   margin: "20px 0",
@@ -43,6 +44,12 @@ const StyledButton = styled(Button)(({ theme }) => ({
   borderRadius: "8px"
 }));
 
+const FormContainer = styled(Box)({
+  backgroundImage: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  minHeight: "100vh",
+  padding: "2rem",
+});
+
 const CheckoutPage = () => {
   const [cartItems, setCartItems] = useState([]);
   const [expanded, setExpanded] = useState(true);
@@ -51,6 +58,7 @@ const CheckoutPage = () => {
   const [formErrors, setFormErrors] = useState({});
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [cod, SetCod] = useState(false);
   const navigate = useNavigate();
 
   const auth = getAuth();
@@ -83,14 +91,14 @@ const CheckoutPage = () => {
     phone: "",
     address: "",
     city: "",
-    postalCode: ""
+    postalCode: "",
   });
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
     validateField(name, value);
   };
@@ -118,86 +126,128 @@ const CheckoutPage = () => {
     setFormErrors(errors);
   };
 
+  const sendOrderConfirmationEmail = async (orderData) => {
+    try {
+      const response = await fetch("http://localhost:5000/send-confirmation-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send order confirmation email");
+      }
+
+      const data = await response.json();
+      console.log("Order confirmation email sent successfully:", data.message);
+    } catch (error) {
+      console.error("Error sending email:", error);
+      toast.error("Failed to send order confirmation email.");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const requiredFields = ["firstName", "lastName", "email", "phone", "address", "city", "postalCode"];
-    const missingFields = requiredFields.filter(field => !formData[field]);
+    const requiredFields = [
+      "firstName",
+      "lastName",
+      "email",
+      "phone",
+      "address",
+      "city",
+      "postalCode",
+    ];
+    const missingFields = requiredFields.filter((field) => !formData[field]);
 
     if (missingFields.length > 0) {
-      // If any required fields are missing, show a toast error message
       toast.error(`Please fill in the following fields: ${missingFields.join(", ")}`);
-      return; // Prevent form submission
+      return;
     }
 
     setLoading(true);
-  
+
     try {
-      // Transform cartItems to only include product name and quantity
       const transformedCartItems = cartItems.map((item) => ({
-        productId:item.id,
+        productId: item.id,
         productName: item.productName,
         quantity: item.quantity,
       }));
-  
-      // Calculate total
+
       const totalAmount = calculateTotal();
-  
-      // Add the data to Firestore
+
       const docRef = await addDoc(collection(db, "commands"), {
         ...formData,
-        cartItems: transformedCartItems, // Use transformed data
+        cartItems: transformedCartItems,
         paymentMethod,
-        totalAmount, // Include the total amount
+        totalAmount,
         createdAt: new Date(),
-        userId
+        userId,
       });
-  
+
+      const dbRealtime = getDatabase();
+      const orderRef = ref(dbRealtime, 'commands/' + userId + '/' + docRef.id);  // Use Firestore document ID as the key in Realtime DB
+      await set(orderRef, {
+        ...formData,
+        cartItems: transformedCartItems,
+        paymentMethod,
+        totalAmount,
+        createdAt: new Date().toISOString(),
+        userId,
+      });
+
       if (paymentMethod === "online") {
         navigate("/payment", { state: { orderId: docRef.id, total: totalAmount } });
-        setSuccessMessage(`Order placed successfully! Order ID: ${docRef.id}`);
-        setCartItems([]);
-        localStorage.removeItem("cartItems");
-        setFormData({
-          firstName: "",
-          lastName: "",
-          email: "",
-          phone: "",
-          address: "",
-          city: "",
-          postalCode: "",
-        });
       } else {
-        setSuccessMessage(`Order placed successfully! Order ID: ${docRef.id}`);
-        setCartItems([]);
+        const emailData = {
+          to: formData.email,
+          firstName: formData.firstName,
+          orderId: docRef.id,
+          totalAmount,
+          cartItems: transformedCartItems,
+          address: formData.address,
+          city: formData.city,
+          postalCode: formData.postalCode,
+        };
+
+        await sendOrderConfirmationEmail(emailData); 
         localStorage.removeItem("cartItems");
-        setFormData({
-          firstName: "",
-          lastName: "",
-          email: "",
-          phone: "",
-          address: "",
-          city: "",
-          postalCode: "",
-        });
+        setCartItems([]);
+        SetCod(true);
       }
-    } catch (err) {
-      setError("Failed to place order. Please try again.");
+    } catch (error) {
+      console.error("Error submitting order:", error);
+      toast.error("Failed to submit order");
     } finally {
       setLoading(false);
     }
   };
-  
 
   const calculateTotal = () => {
     return cartItems.reduce((total, item) => total + item.productPrice * item.quantity, 0);
   };
 
   const calculateLineTotal = (price, quantity) => {
-    return (price * quantity).toFixed(2); 
+    return (price * quantity).toFixed(2);
   };
 
-
+  if(cod){
+    return (
+      <>
+         <Navbar />
+          <FormContainer>
+              <StyledCard>
+              <Alert severity="success">
+                 Order placed successfully! Thank you .check you mail.
+              </Alert>
+              </StyledCard>
+          </FormContainer>
+         <Footer />
+    </>
+  );
+  }
 
   return (
     <>
@@ -443,6 +493,6 @@ const CheckoutPage = () => {
     <Footer />
     </>
   );
-};
 
+  };
 export default CheckoutPage;

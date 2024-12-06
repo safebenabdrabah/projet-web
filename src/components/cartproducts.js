@@ -22,7 +22,6 @@ import { FaPlus, FaMinus, FaTrash, FaInfoCircle } from "react-icons/fa";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import SingleProduct from "./SingleProduct";
-import { useCart } from "../global/CartContext";
 import Snackbar from "@mui/material/Snackbar";
 
 
@@ -40,22 +39,112 @@ const QuantityButton = styled(IconButton)(({ theme }) => ({
   borderRadius: "4px",
   padding: "4px",
 }));
-  
-const ShoppingCart = () => {
-  
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const navigate = useNavigate();
-  const { loading, error, cartItems,  updateCartQuantity, removeFromCart, calculateTotal , toastOpen,
-    toastMessage,
-    setToastOpen,} = useCart();
 
-    const handleToastClose = () => {
-      setToastOpen(false); // Close the toast
+const ShoppingCart = () => {
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [selectedProduct,setSelectedProduct]=useState()
+  const navigate = useNavigate();
+
+  // Fetch cart data from localStorage on mount
+  useEffect(() => {
+    const fetchCartItems = () => {
+      setLoading(true);
+      try {
+        const storedItems = localStorage.getItem("cartItems");
+        if (storedItems) {
+          setCartItems(JSON.parse(storedItems));
+        } else {
+          setCartItems([]);
+        }
+      } catch (err) {
+        setError("Failed to fetch cart data");
+      } finally {
+        setLoading(false);
+      }
     };
+
+    fetchCartItems();
+  }, []);
+
+  // Add or update cart item in localStorage
+  const addToCart = (product) => {
+    setLoading(true);
+    try {
+      const updatedCart = [...cartItems];
+      const existingProductIndex = updatedCart.findIndex((item) => item.id === product.id);
+
+      if (existingProductIndex !== -1) {
+        updatedCart[existingProductIndex].quantity += 1;
+      } else {
+        updatedCart.push({ ...product, quantity: 1 });
+      }
+
+      setCartItems(updatedCart);
+      localStorage.setItem("cartItems", JSON.stringify(updatedCart));
+    } catch (err) {
+      setError("Failed to add product to cart");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update the quantity of an item in the cart
+  const updateCartQuantity = (id, change) => {
+    setLoading(true);
+    try {
+      const updatedItems = cartItems.map((item) => {
+        if (item.id === id) {
+          const newQuantity = item.quantity + change;
+          if (newQuantity < 1) {
+            setToastMessage("Quantity cannot be less than 1");
+            setToastOpen(true);
+            return item; // Don't update the item if the quantity is invalid
+          }
+          return { ...item, quantity: newQuantity };
+        }
+        return item;
+      });
+
+      setCartItems(updatedItems);
+      localStorage.setItem("cartItems", JSON.stringify(updatedItems));
+    } catch (err) {
+      setError(err.message);
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Remove an item from the cart
+  const removeFromCart = (id) => {
+    setLoading(true);
+    try {
+      const updatedItems = cartItems.filter((item) => item.id !== id);
+      setCartItems(updatedItems);
+      localStorage.setItem("cartItems", JSON.stringify(updatedItems));
+    } catch (err) {
+      setError("Failed to remove item from cart");
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate the total price of items in the cart
+  const calculateTotal = () => {
+    return cartItems.reduce((total, item) => total + item.productPrice * item.quantity, 0).toFixed(2);
+  };
+
+  const handleToastClose = () => {
+    setToastOpen(false); // Close the toast
+  };
 
   const handleProductClick = (id) => {
     navigate(`/product/${id}`);
-   
   };
 
   const handleCheckoutClick = () => {
@@ -63,12 +152,12 @@ const ShoppingCart = () => {
   };
 
   const calculateLineTotal = (price, quantity) => {
-    return (price * quantity).toFixed(2); 
+    return (price * quantity).toFixed(2);
   };
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
-  
+
   return (
     <>
       <Navbar />
@@ -153,7 +242,8 @@ const ShoppingCart = () => {
                   fullWidth
                   sx={{ mt: 2 }}
                   disabled={cartItems.length === 0}
-                   onClick={handleCheckoutClick}>
+                  onClick={handleCheckoutClick}
+                >
                   Proceed to Checkout
                 </Button>
               </CardContent>
@@ -188,13 +278,13 @@ const ShoppingCart = () => {
       </Container>
       <Footer />
       <Snackbar
-                  open={toastOpen}
-                  autoHideDuration={3000}  
-                  onClose={handleToastClose}
-                  >
-            <Alert onClose={handleToastClose} severity="error" sx={{ width: '100%' }}>
-                      {toastMessage}
-            </Alert>
+        open={toastOpen}
+        autoHideDuration={3000}
+        onClose={handleToastClose}
+      >
+        <Alert onClose={handleToastClose} severity="error" sx={{ width: "100%" }}>
+          {toastMessage}
+        </Alert>
       </Snackbar>
     </>
   );
